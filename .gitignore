@@ -1,6 +1,7 @@
 .idea
 chroma_db
 chroma_image_db
+sql_db
 config
 models
 images

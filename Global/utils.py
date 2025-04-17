@@ -197,6 +197,24 @@ def adjust_image(
         return None
 
 
+# def extract_json_raw(text):
+#     """
+#     从文本中提取原始JSON字符串（不解析）
+#
+#     参数:
+#         text (str): 可能包含JSON的文本
+#
+#     返回:
+#         str: 提取到的原始JSON字符串，若无则返回None
+#     """
+#     import regex
+#
+#     json_pattern = r"(\{(?:[^{}]|(?R))*\}|\[(?:[^\[\]]|(?R))*\])"
+#     # json_pattern = r"\{(?:[^{}]|\{(?:[^{}]|\{[^{}]*\})*\})*\}|\[(?:[^\[\]]|\[(?:[^\[\]]|\[[^\[\]]*\])*\])*\]"
+#     match = regex.search(json_pattern, text, regex.DOTALL)
+#     return match.group(0) if match else None
+
+
 def extract_json_raw(text):
     """
     从文本中提取原始JSON字符串（不解析）
@@ -207,70 +225,66 @@ def extract_json_raw(text):
     返回:
         str: 提取到的原始JSON字符串，若无则返回None
     """
-    import regex
+    # 查找第一个 `{` 和最后一个 `}`
+    start_idx = text.find("{")
+    end_idx = text.rfind("}")
 
-    json_pattern = r"(\{(?:[^{}]|(?R))*\}|\[(?:[^\[\]]|(?R))*\])"
-    match = regex.search(json_pattern, text, regex.DOTALL)
-    return match.group(0) if match else None
+    # 如果没有找到 `{` 或 `}`，返回 None
+    if start_idx == -1 or end_idx == -1 or end_idx <= start_idx:
+        return None
+
+    # 返回包含从第一个 `{` 到最后一个 `}` 的部分
+    return text[start_idx : end_idx + 1]
 
 
-def default_embedding(): 
-    import os 
-    # 临时禁用数据集下载、模型下载和 Hub 相关请求 
-    os.environ["HF_DATASETS_OFFLINE"]   = "1" 
-    os.environ["TRANSFORMERS_OFFLINE"]   = "1" 
-    os.environ["HF_HUB_OFFLINE"]   = "1" 
- 
-    from langchain_huggingface import HuggingFaceEmbeddings 
-    # 修正 model_kwargs 的语法错误 
-    ret =  HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2", cache_folder="D:/wr/langchain/src/models", model_kwargs = {'device': 'cuda'}) 
- 
-    # 恢复在线模式 
-    os.environ["HF_DATASETS_OFFLINE"]   = "0" 
-    os.environ["TRANSFORMERS_OFFLINE"]   = "0" 
-    os.environ["HF_HUB_OFFLINE"]   = "0" 
- 
-    return ret 
+def embeddings():
+    from langchain_huggingface import HuggingFaceEmbeddings
 
+    return HuggingFaceEmbeddings(
+        model_name="sentence-transformers/all-MiniLM-L6-v2",
+        cache_folder="D:/wr/langchain/src/models",
+        model_kwargs={"device": "cuda"},
+    )
 
 
 def extract_paragraphs(content_str, json_str):
     """
-        根据之前约定的json格式划分原始文本
+    根据之前约定的json格式划分原始文本
     """
     import json
+
     # 解析JSON字符串
     try:
         data = json.loads(json_str)
     except json.JSONDecodeError:
         raise ValueError("Invalid JSON string")
-    
+
     # 获取data列表
     data_list = data.get("data", [])
     if not data_list:
         return []
-    
+
     result = []
-    
+
     for item in data_list:
         b = item.get("b", "")
         e = item.get("e", "")
-        
+
         if not b or not e:
             continue
-        
+
         # 查找开始和结束位置
         start_idx = content_str.find(b)
         end_idx = content_str.find(e)
-        
+
         if start_idx == -1 or end_idx == -1:
             continue
-        
+
         # 计算结束位置，加上结束字符串的长度
         end_idx += len(e)
-        
+
         # 提取段落
         paragraph = content_str[start_idx:end_idx]
         result.append(paragraph)
-    
+
     return result
